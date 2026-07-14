@@ -1,22 +1,21 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-    GoogleAuthProvider,
     User,
     createUserWithEmailAndPassword,
     onAuthStateChanged,
     sendPasswordResetEmail,
-    signInWithCredential,
     signInWithEmailAndPassword,
     signOut,
 } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 
 interface AuthContextType {
     user: User | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
     signUp: (email: string, password: string) => Promise<void>;
-    googleSignIn: (idToken: string) => Promise<void>;
     logout: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
 }
@@ -28,8 +27,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             setUser(firebaseUser);
+            if (firebaseUser) {
+                try {
+                    // Sync user data from Firestore to local AsyncStorage
+                    const docRef = doc(db, 'users', firebaseUser.uid);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        if (data.recommendation) {
+                            await AsyncStorage.setItem('@career_recommendation', JSON.stringify(data.recommendation));
+                        }
+                        if (data.skills) {
+                            await AsyncStorage.setItem('@user_skills', JSON.stringify(data.skills));
+                        }
+                        if (data.personality) {
+                            await AsyncStorage.setItem('@user_personality', JSON.stringify(data.personality));
+                        }
+                        if (data.progress) {
+                            await AsyncStorage.setItem('@user_progress', JSON.stringify(data.progress));
+                        }
+                        if (data.onboardingState) {
+                            await AsyncStorage.setItem('@onboarding_state', JSON.stringify(data.onboardingState));
+                        }
+                    }
+                } catch (err: any) {
+                    console.warn('Failed to sync Firestore career data on login (offline):', err?.message || err);
+                }
+            }
             setLoading(false);
         });
         return unsubscribe;
@@ -53,18 +79,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const googleSignIn = async (idToken: string) => {
-        try {
-            const credential = GoogleAuthProvider.credential(idToken);
-            await signInWithCredential(auth, credential);
-        } catch (error) {
-            console.error('Firebase GoogleSignIn Error:', error);
-            throw error;
-        }
-    };
-
     const logout = async () => {
-        await signOut(auth);
+        try {
+            await signOut(auth);
+            await AsyncStorage.multiRemove([
+                '@career_recommendation',
+                '@user_skills',
+                '@user_personality',
+                '@user_progress',
+                '@recommendation_feedback',
+                '@onboarding_state'
+            ]);
+        } catch (err) {
+            console.error('Failed to clear local storage on logout:', err);
+        }
     };
 
     const resetPassword = async (email: string) => {
@@ -72,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, signIn, signUp, googleSignIn, logout, resetPassword }}>
+        <AuthContext.Provider value={{ user, loading, signIn, signUp, logout, resetPassword }}>
             {children}
         </AuthContext.Provider>
     );

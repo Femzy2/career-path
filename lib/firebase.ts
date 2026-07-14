@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth, initializeAuth } from 'firebase/auth';
@@ -20,14 +21,17 @@ const firebaseConfig = {
 export const GOOGLE_WEB_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "290053941258-bc4cbvtjdrhhp2gflj470bhu4eqdekmf.apps.googleusercontent.com";
 
-// Initialize Firebase only once
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const isNewApp = getApps().length === 0;
+const app = isNewApp ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Auth with persistence for React Native
-export const auth = getApps().length === 0
-  ? initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
-  })
+// Initialize Auth with persistence for React Native, fallback to standard getAuth on Web
+export const auth = isNewApp
+  ? (Platform.OS !== 'web' && typeof getReactNativePersistence === 'function'
+      ? initializeAuth(app, {
+          persistence: getReactNativePersistence(AsyncStorage)
+        })
+      : getAuth(app)
+    )
   : getAuth(app);
 
 export const db = getFirestore(app);

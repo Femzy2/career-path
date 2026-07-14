@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareerPath AI — Admin Control Portal</title>
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="admin-style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <div class="logo-glow"></div>
+                    <span class="logo-icon">⚡</span>
+                    <span class="logo-text">CareerPath <span class="accent-text">AI</span></span>
+                </div>
+                <div class="connection-status">
+                    <span class="status-dot online"></span>
+                    <span class="status-text">Connected to Firestore</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="configs">
+                    <i data-lucide="key-round"></i>
+                    <span>API Credentials</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <span class="version-tag">Admin Console v1.4.0</span>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="content-header">
+                <div class="header-titles">
+                    <h1 id="tab-title">System Dashboard</h1>
+                    <p id="tab-subtitle">Real-time AI performance metrics and system statistics.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="refresh-btn">
+                        <i data-lucide="refresh-cw"></i>
+                        <span>Refresh Data</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard Tab -->
+            <section class="tab-panel active" id="dashboard-tab">
+                <!-- KPI Row -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon-wrapper user-icon">
+                            <i data-lucide="users"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <h3>Total Users</h3>
+                            <p class="kpi-value" id="kpi-users">0</p>
+                            <span class="kpi-trend trend-up">Active students</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-icon-wrapper completion-icon">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <h3>Onboarding Rate</h3>
+                            <p class="kpi-value" id="kpi-onboarding">0%</p>
+                            <span class="kpi-trend trend-up">Completed profiles</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-icon-wrapper request-icon">
+                            <i data-lucide="zap"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <h3>AI API Requests</h3>
+                            <p class="kpi-value" id="kpi-api-calls">0</p>
+                            <span class="kpi-trend trend-neutral" id="kpi-success-rate">100% success rate</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-icon-wrapper latency-icon">
+                            <i data-lucide="clock"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <h3>Avg Latency</h3>
+                            <p class="kpi-value" id="kpi-latency">0 ms</p>
+                            <span class="kpi-trend trend-down" id="kpi-latency-trend">Model response healthy</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Status Table & Console Log Log Side-by-Side -->
+                <div class="dashboard-grid">
+                    <div class="card stat-details-card">
+                        <div class="card-header border-bottom">
+                            <h2>AI Integration Status</h2>
+                            <p>Current configuration status of backend endpoints.</p>
+                        </div>
+                        <div class="status-table-wrapper">
+                            <table class="status-table">
+                                <thead>
+                                    <tr>
+                                        <th>API Interface</th>
+                                        <th>Status</th>
+                                        <th>Latency Rating</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Gemini API</strong></td>
+                                        <td><span class="status-pill status-active" id="status-gemini">Ready</span></td>
+                                        <td><span class="latency-pill" id="latency-rating-gemini">0 ms</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>YouTube API</strong></td>
+                                        <td><span class="status-pill status-active" id="status-youtube">Ready</span></td>
+                                        <td><span class="latency-pill">Instant</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Coursera Catalog API</strong></td>
+                                        <td><span class="status-pill status-active">Public</span></td>
+                                        <td><span class="latency-pill">Instant</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Udemy Search API</strong></td>
+                                        <td><span class="status-pill status-inactive">Dynamic Link</span></td>
+                                        <td><span class="latency-pill">Instant</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Console -->
+                    <div class="card config-card log-console-card">
+                        <div class="card-header border-bottom">
+                            <h2>System Operations Console</h2>
+                            <p>Real-time log stream of API connections and requests.</p>
+                        </div>
+                        <div class="console-body" id="console-logs">
+                            <div class="log-line system-line">[SYSTEM] Starting Admin Control Portal...</div>
+                            <div class="log-line system-line">[SYSTEM] Initializing Firebase web SDK client...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Configs Tab -->
+            <section class="tab-panel" id="configs-tab">
+                <div class="configs-grid">
+                    <!-- Key Manager -->
+                    <div class="card config-card">
+                        <div class="card-header border-bottom">
+                            <h2>Core API Credentials</h2>
+                            <p>Credentials loaded and synced dynamically in clients.</p>
+                        </div>
+                        <form id="keys-form" class="config-form">
+                            <div class="form-group">
+                                <label for="gemini-key">Gemini AI API Key</label>
+                                <div class="input-wrapper">
+                                    <input type="password" id="gemini-key" placeholder="Enter Gemini API Key..." required>
+                                    <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('gemini-key')">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="youtube-key">YouTube API Key</label>
+                                <div class="input-wrapper">
+                                    <input type="password" id="youtube-key" placeholder="Enter YouTube API Key...">
+                                    <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('youtube-key')">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="google-client-id">Google Web OAuth Client ID</label>
+                                <input type="text" id="google-client-id" placeholder="Enter Client ID for Google Sign-In...">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="firebase-auth-domain">Firebase Project ID</label>
+                                <input type="text" id="firebase-auth-domain" placeholder="e.g. career-path-3ed15" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" id="save-keys-btn">
+                                <i data-lucide="save"></i> Save Core Credentials
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Course Providers Credentials -->
+                    <div class="card config-card">
+                        <div class="card-header border-bottom">
+                            <h2>External Dynamic Catalog API Credentials</h2>
+                            <p>Optional access keys for future course providers.</p>
+                        </div>
+                        <form id="course-keys-form" class="config-form">
+                            <div class="form-group">
+                                <label for="coursera-client-id">Coursera Client ID (Optional)</label>
+                                <input type="text" id="coursera-client-id" placeholder="Enter Coursera Client ID...">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="coursera-client-secret">Coursera Client Secret (Optional)</label>
+                                <div class="input-wrapper">
+                                    <input type="password" id="coursera-client-secret" placeholder="Enter Coursera Client Secret...">
+                                    <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('coursera-client-secret')">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="udemy-client-id">Udemy Client ID (Optional)</label>
+                                <input type="text" id="udemy-client-id" placeholder="Enter Udemy Client ID...">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="udemy-client-secret">Udemy Client Secret (Optional)</label>
+                                <div class="input-wrapper">
+                                    <input type="password" id="udemy-client-secret" placeholder="Enter Udemy Client Secret...">
+                                    <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('udemy-client-secret')">
+                                        <i data-lucide="eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-secondary-accent" id="save-course-keys-btn">
+                                <i data-lucide="lock"></i> Save Course Credentials
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Firebase SDK Modules Script -->
+    <script type="module" src="admin-app.js?v=1.4.4"></script>
+</body>
+</html>

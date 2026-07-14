@@ -1,13 +1,11 @@
-import { makeRedirectUri } from 'expo-auth-session';
-import * as Google from 'expo-auth-session/providers/google';
-import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,14 +16,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppleLogo, GoogleLogo } from '../components/social-logos';
 import { Colors } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useColorScheme } from '../hooks/use-color-scheme';
-import { GOOGLE_WEB_CLIENT_ID } from '../lib/firebase';
-
-// Required for expo-auth-session to properly close the browser on Android
-WebBrowser.maybeCompleteAuthSession();
+import { Feather } from '@expo/vector-icons';
+import { auth, db } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,26 +32,11 @@ export default function AuthScreen() {
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
   const router = useRouter();
-  const { signIn, signUp, googleSignIn } = useAuth();
+  const { mode: paramMode } = useLocalSearchParams<{ mode: string }>();
+  const { signIn, signUp } = useAuth();
 
-  // expo-auth-session Google provider
-  // construct the redirect URI once so we can register it with Google and
-  // log it during development.
-  const redirectUri = makeRedirectUri({ scheme: 'careerpath' });
-
-  const showRedirectUri = () => {
-    console.log('Google redirect URI:', redirectUri);
-    Alert.alert('Redirect URI', redirectUri);
-  };
-
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-    androidClientId: GOOGLE_WEB_CLIENT_ID,
-    iosClientId: GOOGLE_WEB_CLIENT_ID,
-    redirectUri,
-  });
-
-  const [mode, setMode] = useState<AuthMode>('login');
+  const initialMode = (paramMode === 'signup' || paramMode === 'register') ? 'signup' : 'login';
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -65,7 +47,22 @@ export default function AuthScreen() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Animated tab indicator
-  const tabAnim = useRef(new Animated.Value(0)).current;
+  const tabAnim = useRef(new Animated.Value(initialMode === 'signup' ? 1 : 0)).current;
+
+  // React to parameter changes if screen is already mounted
+  useEffect(() => {
+    console.log('auth.tsx: paramMode is', paramMode);
+    if (paramMode === 'signup' || paramMode === 'register' || paramMode === 'login') {
+      const targetMode = (paramMode === 'signup' || paramMode === 'register') ? 'signup' : 'login';
+      setMode(targetMode);
+      Animated.spring(tabAnim, {
+        toValue: targetMode === 'login' ? 0 : 1,
+        useNativeDriver: false,
+        tension: 80,
+        friction: 10,
+      }).start();
+    }
+  }, [paramMode]);
 
   const switchMode = (newMode: AuthMode) => {
     setMode(newMode);
@@ -108,52 +105,11 @@ export default function AuthScreen() {
       } else {
         await signUp(email.trim(), password);
       }
-      // Route to onboarding
-      router.replace('/onboarding');
     } catch (error: any) {
       const msg = firebaseErrorMessage(error.code);
       Alert.alert('Authentication Error', msg);
-    } finally {
       setLoading(false);
     }
-  };
-
-  // Handle the OAuth response from Google
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const idToken = response.authentication?.idToken;
-      if (idToken) {
-        setLoading(true);
-        googleSignIn(idToken)
-          .then(() => {
-            router.replace('/onboarding');
-          })
-          .catch((error: any) => {
-            const msg = firebaseErrorMessage(error.code);
-            Alert.alert('Google Sign-In Error', msg);
-          })
-          .finally(() => setLoading(false));
-      } else {
-        Alert.alert('Google Sign-In', 'Could not retrieve ID token from Google. Please try again.');
-      }
-    } else if (response?.type === 'error') {
-      Alert.alert('Google Sign-In', response.error?.message ?? 'An error occurred during Google sign-in.');
-    }
-  }, [response]);
-
-  const handleGoogleAuth = async () => {
-    try {
-      await promptAsync();
-    } catch (err: any) {
-      Alert.alert('Google Sign-In', err.message ?? 'Failed to open Google sign-in.');
-    }
-  };
-
-  const handleAppleAuth = async () => {
-    Alert.alert(
-      'Apple Sign-In',
-      'Apple authentication is only supported on iOS 13+ and requires additional expo-apple-authentication setup.',
-    );
   };
 
   const firebaseErrorMessage = (code: string): string => {
@@ -201,9 +157,11 @@ export default function AuthScreen() {
         >
           {/* Logo & Header */}
           <View style={styles.headerContainer}>
-            <View style={[styles.logoMark, { backgroundColor: colors.primary }]}>
-              <Text style={styles.logoMarkText}>C</Text>
-            </View>
+            <Image
+              source={require('../assets/images/logo.png')}
+              style={styles.logoMarkImage}
+              resizeMode="contain"
+            />
             <Text style={[styles.brandName, { color: colors.text }]}>CareerPath AI</Text>
             <Text style={[styles.tagline, { color: colors.gray }]}>
               {mode === 'login' ? 'Welcome back! Continue your journey.' : 'Start your AI-powered career journey.'}
@@ -217,29 +175,37 @@ export default function AuthScreen() {
             shadowColor: colors.shadow,
           }]}>
             {/* Tab Switcher */}
-            <View style={[styles.tabContainer, { backgroundColor: colors.backgroundSecondary }]}>
+            <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
+              <TouchableOpacity
+                style={styles.tabBtn}
+                onPress={() => switchMode('login')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, {
+                  color: mode === 'login' ? colors.primary : colors.gray,
+                  fontWeight: mode === 'login' ? '800' : '600',
+                }]}>
+                  Sign In
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.tabBtn}
+                onPress={() => switchMode('signup')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, {
+                  color: mode === 'signup' ? colors.primary : colors.gray,
+                  fontWeight: mode === 'signup' ? '800' : '600',
+                }]}>
+                  Register
+                </Text>
+              </TouchableOpacity>
+
               <Animated.View style={[styles.tabIndicator, {
                 backgroundColor: colors.primary,
                 left: tabIndicatorLeft,
               }]} />
-              <TouchableOpacity
-                onPress={() => switchMode('login')}
-                style={styles.tab}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.tabText, { color: mode === 'login' ? '#FFF' : colors.gray }]}>
-                  Sign In
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => switchMode('signup')}
-                style={styles.tab}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.tabText, { color: mode === 'signup' ? '#FFF' : colors.gray }]}>
-                  Sign Up
-                </Text>
-              </TouchableOpacity>
             </View>
 
             {/* Form Fields */}
@@ -252,7 +218,7 @@ export default function AuthScreen() {
                     borderColor: focusedField === 'name' ? colors.primary : colors.border,
                     backgroundColor: colors.background,
                   }]}>
-                    <Text style={styles.inputIcon}>👤</Text>
+                    <Feather name="user" size={18} color={colors.gray} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: colors.text }]}
                       placeholder="Enter your full name"
@@ -275,7 +241,7 @@ export default function AuthScreen() {
                   borderColor: focusedField === 'email' ? colors.primary : colors.border,
                   backgroundColor: colors.background,
                 }]}>
-                  <Text style={styles.inputIcon}>✉️</Text>
+                  <Feather name="mail" size={18} color={colors.gray} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.text }]}
                     placeholder="Enter your email"
@@ -299,7 +265,7 @@ export default function AuthScreen() {
                   borderColor: focusedField === 'password' ? colors.primary : colors.border,
                   backgroundColor: colors.background,
                 }]}>
-                  <Text style={styles.inputIcon}>🔒</Text>
+                  <Feather name="lock" size={18} color={colors.gray} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.text }]}
                     placeholder="Enter your password"
@@ -312,7 +278,7 @@ export default function AuthScreen() {
                     onBlur={() => setFocusedField(null)}
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                    <Text style={{ fontSize: 16 }}>{showPassword ? '🙈' : '👁️'}</Text>
+                    <Feather name={showPassword ? "eye-off" : "eye"} size={18} color={colors.gray} />
                   </TouchableOpacity>
                 </View>
                 {mode === 'login' && (
@@ -330,7 +296,7 @@ export default function AuthScreen() {
                     borderColor: focusedField === 'confirm' ? colors.primary : colors.border,
                     backgroundColor: colors.background,
                   }]}>
-                    <Text style={styles.inputIcon}>🔏</Text>
+                    <Feather name="shield" size={18} color={colors.gray} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: colors.text }]}
                       placeholder="Confirm your password"
@@ -343,7 +309,7 @@ export default function AuthScreen() {
                       onBlur={() => setFocusedField(null)}
                     />
                     <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeBtn}>
-                      <Text style={{ fontSize: 16 }}>{showConfirmPassword ? '🙈' : '👁️'}</Text>
+                      <Feather name={showConfirmPassword ? "eye-off" : "eye"} size={18} color={colors.gray} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -353,46 +319,20 @@ export default function AuthScreen() {
               <TouchableOpacity
                 onPress={handleEmailAuth}
                 disabled={loading}
-                style={[styles.primaryBtn, { backgroundColor: colors.primary, opacity: loading ? 0.8 : 1 }]}
+                style={[styles.submitBtn, {
+                  backgroundColor: colors.primary,
+                  boxShadow: '0 8px 16px rgba(124, 58, 237, 0.3)',
+                }]}
                 activeOpacity={0.85}
               >
                 {loading ? (
-                  <ActivityIndicator color="#FFF" size="small" />
+                  <ActivityIndicator size="small" color="#FFF" />
                 ) : (
-                  <Text style={styles.primaryBtnText}>
-                    {mode === 'login' ? 'Sign In →' : 'Create Account →'}
+                  <Text style={styles.submitBtnText}>
+                    {mode === 'login' ? 'Sign In' : 'Create Account'}
                   </Text>
                 )}
               </TouchableOpacity>
-
-              {/* Divider */}
-              <View style={styles.divider}>
-                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-                <Text style={[styles.dividerLabel, { color: colors.gray }]}>or</Text>
-                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-              </View>
-
-              {/* Social Buttons */}
-              <View style={styles.socialRow}>
-                <TouchableOpacity
-                  onPress={handleGoogleAuth}
-                  disabled={loading}
-                  style={[styles.socialBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
-                  activeOpacity={0.7}
-                >
-                  <GoogleLogo size={20} color="#000" />
-                  <Text style={[styles.socialBtnText, { color: colors.text }]}>Google</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleAppleAuth}
-                  disabled={loading}
-                  style={[styles.socialBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
-                  activeOpacity={0.7}
-                >
-                  <AppleLogo size={20} color={colors.text} />
-                  <Text style={[styles.socialBtnText, { color: colors.text }]}>Apple</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           </View>
 
@@ -442,69 +382,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
-  logoMark: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoMarkImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
     marginBottom: 16,
-    boxShadow: '0 8px 16px rgba(124, 58, 237, 0.4)',
-    elevation: 8,
-  },
-  logoMarkText: {
-    color: '#FFF',
-    fontSize: 28,
-    fontWeight: '800',
   },
   brandName: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '900',
+    marginBottom: 6,
     letterSpacing: -0.5,
-    marginBottom: 8,
   },
   tagline: {
-    fontSize: 15,
-    fontWeight: '400',
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 22,
+    fontWeight: '500',
   },
   card: {
     borderRadius: 24,
-    borderWidth: 1,
-    overflow: 'hidden',
-    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.2)',
-    elevation: 12,
+    borderWidth: 1.5,
+    padding: 24,
+    elevation: 4,
     marginBottom: 24,
   },
-  tabContainer: {
+  tabBar: {
     flexDirection: 'row',
-    margin: 16,
-    borderRadius: 14,
-    padding: 4,
+    borderBottomWidth: 1.5,
+    marginBottom: 24,
     position: 'relative',
-    height: 48,
   },
-  tabIndicator: {
-    position: 'absolute',
-    top: 4,
-    bottom: 4,
-    width: '50%',
-    borderRadius: 10,
-  },
-  tab: {
+  tabBtn: {
     flex: 1,
-    justifyContent: 'center',
+    paddingVertical: 14,
     alignItems: 'center',
-    zIndex: 1,
   },
   tabText: {
     fontSize: 15,
-    fontWeight: '600',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: -1.5,
+    width: '50%',
+    height: 3,
+    borderRadius: 2,
   },
   form: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
+    gap: 4,
   },
   fieldGroup: {
     marginBottom: 16,
@@ -525,7 +449,6 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   inputIcon: {
-    fontSize: 17,
     marginRight: 10,
   },
   input: {
@@ -534,7 +457,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   eyeBtn: {
-    padding: 6,
+    padding: 8,
   },
   forgotBtn: {
     alignSelf: 'flex-end',
@@ -544,56 +467,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  primaryBtn: {
-    height: 54,
+  submitBtn: {
+    height: 52,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
-    boxShadow: '0 8px 16px rgba(124, 58, 237, 0.35)',
-    elevation: 8,
+    elevation: 6,
   },
-  primaryBtnText: {
+  submitBtnText: {
     color: '#FFF',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  socialRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  socialBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 50,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    gap: 8,
-  },
-  socialBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   footerText: {
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+    fontWeight: '500',
+    paddingHorizontal: 20,
   },
 });
