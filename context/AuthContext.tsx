@@ -7,7 +7,7 @@ import {
     signInWithEmailAndPassword,
     signOut,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../lib/firebase';
 
@@ -15,7 +15,7 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
-    signUp: (email: string, password: string) => Promise<void>;
+    signUp: (email: string, password: string, displayName?: string) => Promise<void>;
     logout: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
 }
@@ -70,9 +70,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const signUp = async (email: string, password: string) => {
+    const signUp = async (email: string, password: string, displayName?: string) => {
         try {
-            await createUserWithEmailAndPassword(auth, email, password);
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const firebaseUser = userCredential.user;
+            
+            // Create user document in Firestore users collection
+            await setDoc(doc(db, 'users', firebaseUser.uid), {
+                email: firebaseUser.email,
+                name: displayName || '',
+                createdAt: new Date().toISOString(),
+                onboardingState: null,
+                recommendation: null,
+            }, { merge: true });
         } catch (error) {
             console.error('Firebase SignUp Error:', error);
             throw error;

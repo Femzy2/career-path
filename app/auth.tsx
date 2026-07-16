@@ -103,7 +103,7 @@ export default function AuthScreen() {
       if (mode === 'login') {
         await signIn(email.trim(), password);
       } else {
-        await signUp(email.trim(), password);
+        await signUp(email.trim(), password, name.trim());
       }
     } catch (error: any) {
       const msg = firebaseErrorMessage(error.code);

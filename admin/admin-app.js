@@ -33,6 +33,26 @@ try {
     db = getFirestore(app);
 } catch (e) {
     console.error("Firebase connection initialization failed:", e);
+    setTimeout(() => updateConnectionStatus(false, e.message), 100);
+}
+
+// Update Connection Status in UI
+function updateConnectionStatus(isConnected, errorMsg = "") {
+    const dot = document.getElementById("status-dot");
+    const text = document.getElementById("status-text");
+    if (!dot || !text) return;
+    
+    if (isConnected) {
+        dot.className = "status-dot online";
+        text.textContent = "Connected to Firestore";
+        text.title = "";
+    } else {
+        dot.className = "status-dot offline";
+        text.textContent = errorMsg ? "Connection Failed" : "Disconnected";
+        if (errorMsg) {
+            text.title = errorMsg;
+        }
+    }
 }
 
 // ── Local Variables & State ──────────────────────────────────────────────
@@ -253,9 +273,12 @@ async function loadAllSystemData() {
         // Calculate KPI values
         calculateSystemKPIs();
 
+        // Update status to online since we successfully loaded documents
+        updateConnectionStatus(true);
     } catch (err) {
         addConsoleLog(`Firestore connection failed or query error: ${err.message}`, "error");
         console.error("Firestore loading failed:", err);
+        updateConnectionStatus(false, err.message);
     }
 }
 
