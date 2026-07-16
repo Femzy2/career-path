@@ -8,6 +8,7 @@ import {
     Animated,
     Dimensions,
     Image,
+    KeyboardAvoidingView,
     Platform,
     ScrollView,
     StyleSheet,
@@ -901,66 +902,72 @@ export default function OnboardingScreen() {
 
     return (
         <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
-            {/* ── Top Header ── */}
-            <View style={[styles.topBar, { borderBottomColor: colors.border }]}>
-                <View style={styles.topBarLeft}>
-                    <Text style={[styles.stepLabel, { color: colors.gray }]}>Step {currentStep + 1}/{TOTAL_STEPS}</Text>
-                </View>
-                <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-                    <Animated.View style={[styles.progressFill, { backgroundColor: colors.primary, width: progressWidth }]} />
-                </View>
-                <View style={styles.topBarRight}>
-                </View>
-            </View>
-
-            {/* ── Step Header ── */}
-            {!processing && (
-                <View style={styles.stepHeader}>
-                    <View style={styles.headerIconContainer}>
-                        {step.iconFamily === 'Feather' ? (
-                            <Feather name={step.iconName as any} size={28} color={colors.primary} />
-                        ) : (
-                            <Ionicons name={step.iconName as any} size={28} color={colors.primary} />
-                        )}
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+            >
+                {/* ── Top Header ── */}
+                <View style={[styles.topBar, { borderBottomColor: colors.border }]}>
+                    <View style={styles.topBarLeft}>
+                        <Text style={[styles.stepLabel, { color: colors.gray }]}>Step {currentStep + 1}/{TOTAL_STEPS}</Text>
                     </View>
-                    <Text style={[styles.stepTitle, { color: colors.text }]}>{step.title}</Text>
-                    <Text style={[styles.stepSubtitle, { color: colors.gray }]}>{step.subtitle}</Text>
+                    <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                        <Animated.View style={[styles.progressFill, { backgroundColor: colors.primary, width: progressWidth }]} />
+                    </View>
+                    <View style={styles.topBarRight}>
+                    </View>
                 </View>
-            )}
 
-            {/* ── Content ── */}
-            <View style={styles.content}>
-                {renderStep()}
-            </View>
+                {/* ── Step Header ── */}
+                {!processing && (
+                    <View style={styles.stepHeader}>
+                        <View style={styles.headerIconContainer}>
+                            {step.iconFamily === 'Feather' ? (
+                                <Feather name={step.iconName as any} size={28} color={colors.primary} />
+                            ) : (
+                                <Ionicons name={step.iconName as any} size={28} color={colors.primary} />
+                            )}
+                        </View>
+                        <Text style={[styles.stepTitle, { color: colors.text }]}>{step.title}</Text>
+                        <Text style={[styles.stepSubtitle, { color: colors.gray }]}>{step.subtitle}</Text>
+                    </View>
+                )}
 
-            {/* ── Footer Navigation ── */}
-            {!processing && (
-                <View style={[styles.footer, { borderTopColor: colors.border }]}>
-                    {currentStep > 0 ? (
+                {/* ── Content ── */}
+                <View style={styles.content}>
+                    {renderStep()}
+                </View>
+
+                {/* ── Footer Navigation ── */}
+                {!processing && (
+                    <View style={[styles.footer, { borderTopColor: colors.border }]}>
+                        {currentStep > 0 ? (
+                            <TouchableOpacity
+                                onPress={goPrev}
+                                activeOpacity={0.7}
+                                style={[styles.backBtn, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}
+                            >
+                                <Text style={[styles.backBtnText, { color: colors.text }]}>← Back</Text>
+                            </TouchableOpacity>
+                        ) : <View style={styles.backBtnPlaceholder} />}
+
                         <TouchableOpacity
-                            onPress={goPrev}
-                            activeOpacity={0.7}
-                            style={[styles.backBtn, { borderColor: colors.border, backgroundColor: colors.cardBackground }]}
+                            onPress={isLastStep ? handleComplete : goNext}
+                            activeOpacity={0.85}
+                            disabled={!canProceed}
+                            style={[styles.nextBtn, {
+                                backgroundColor: canProceed ? colors.primary : colors.border,
+                                boxShadow: canProceed ? '0 6px 12px rgba(124, 58, 237, 0.3)' : 'none',
+                            }]}
                         >
-                            <Text style={[styles.backBtnText, { color: colors.text }]}>← Back</Text>
+                            <Text style={[styles.nextBtnText, { color: canProceed ? '#FFF' : colors.gray }]}>
+                                {currentStep === 0 ? "Get Started →" : isLastStep ? 'Find My Path' : 'Continue →'}
+                            </Text>
                         </TouchableOpacity>
-                    ) : <View style={styles.backBtnPlaceholder} />}
-
-                    <TouchableOpacity
-                        onPress={isLastStep ? handleComplete : goNext}
-                        activeOpacity={0.85}
-                        disabled={!canProceed}
-                        style={[styles.nextBtn, {
-                            backgroundColor: canProceed ? colors.primary : colors.border,
-                            boxShadow: canProceed ? '0 6px 12px rgba(124, 58, 237, 0.3)' : 'none',
-                        }]}
-                    >
-                        <Text style={[styles.nextBtnText, { color: canProceed ? '#FFF' : colors.gray }]}>
-                            {currentStep === 0 ? "Get Started →" : isLastStep ? 'Find My Path' : 'Continue →'}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            )}
+                    </View>
+                )}
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }

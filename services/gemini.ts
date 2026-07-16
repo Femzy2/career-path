@@ -1,7 +1,7 @@
 import { db, auth } from '../lib/firebase';
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'AIzaSyAl2RHDGSkJzxGn91n94r1dtWz_Aj9-Vds';
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
 export interface CareerRecommendation {
   career: {

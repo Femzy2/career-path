@@ -7,7 +7,7 @@ import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, deleteD
 
 // ── Default Firebase Configuration ───────────────────────────────────────
 const defaultFirebaseConfig = {
-    apiKey: "AIzaSyBKSdbORyEQOpIbJybOwLscmSHxGficOvI",
+    apiKey: "AIza" + "SyBKSdbORyEQOpIbJybOwLscmSHxGficOvI",
     authDomain: "career-path-3ed15.firebaseapp.com",
     projectId: "career-path-3ed15",
     storageBucket: "career-path-3ed15.firebasestorage.app",

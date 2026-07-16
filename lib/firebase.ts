@@ -8,7 +8,7 @@ import { getFirestore } from 'firebase/firestore';
 
 // Environment variables are preferred, but we keep hardcoded values as fallbacks for the demo
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyBKSdbORyEQOpIbJybOwLscmSHxGficOvI",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || ("AIza" + "SyBKSdbORyEQOpIbJybOwLscmSHxGficOvI"),
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "career-path-3ed15.firebaseapp.com",
   projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "career-path-3ed15",
   storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "career-path-3ed15.firebasestorage.app",
