@@ -9,7 +9,6 @@ import * as WebBrowser from 'expo-web-browser';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { auth, db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { useAuth } from '../../context/AuthContext';
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
@@ -69,17 +68,7 @@ export default function ResultsDashboard() {
   const colors = Colors[colorScheme];
   const router = useRouter();
   const isDark = colorScheme === 'dark';
-  const { logout } = useAuth();
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      router.replace('/auth');
-    } catch (err) {
-      console.error('Failed to log out:', err);
-      Alert.alert('Logout Error', 'Failed to log out. Please try again.');
-    }
-  };
 
   const [career, setCareer] = useState(RECOMMENDED_CAREER);
   const [courses, setCourses] = useState(RECOMMENDED_COURSES);
@@ -232,21 +221,12 @@ export default function ResultsDashboard() {
             <Text style={[styles.greeting, { color: colors.gray }]}>Your Path is Ready</Text>
             <Text style={[styles.title, { color: colors.text }]}>Recommended Career</Text>
           </View>
-          <View style={styles.headerButtons}>
-            <TouchableOpacity
-              onPress={() => router.replace('/onboarding')}
-              style={[styles.retakeBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-            >
-              <Text style={[styles.retakeText, { color: colors.primary }]}>Retake ↺</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleLogout}
-              style={[styles.logoutBtn, { backgroundColor: colors.cardBackground, borderColor: '#EF4444' }]}
-            >
-              <Text style={[styles.logoutText, { color: '#EF4444' }]}>Logout ⎋</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={() => router.replace('/onboarding')}
+            style={[styles.retakeBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+          >
+            <Text style={[styles.retakeText, { color: colors.primary }]}>Retake ↺</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Main Career Card */}
@@ -451,18 +431,7 @@ const styles = StyleSheet.create({
     borderWidth: 1
   },
   retakeText: { fontSize: 12, fontWeight: '700' },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  logoutBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1
-  },
-  logoutText: { fontSize: 12, fontWeight: '700' },
+
 
   careerCard: {
     borderRadius: 24,

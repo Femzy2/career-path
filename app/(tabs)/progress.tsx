@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Rect, G, Text as SvgText } from 'react-native-svg';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 64; // Horizontal margin padding
@@ -47,6 +48,16 @@ export default function ProgressScreen() {
   const colors = Colors[colorScheme];
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.replace('/auth');
+    } catch (err) {
+      console.error('Failed to log out:', err);
+    }
+  };
 
   const [career, setCareer] = useState<Career | null>(null);
   const [userSkills, setUserSkills] = useState<Record<string, string>>({});
@@ -360,6 +371,13 @@ export default function ProgressScreen() {
           >
             <Text style={[styles.retakeText, { color: colors.primary }]}>Reset & Retake Assessment ↺</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={[styles.logoutBtn, { borderColor: '#EF4444', borderWidth: 1.5 }]}
+          >
+            <Text style={[styles.logoutText, { color: '#EF4444' }]}>Log Out of Account ⎋</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -468,6 +486,14 @@ const styles = StyleSheet.create({
     marginTop: 10
   },
   retakeText: { fontSize: 14, fontWeight: '700' },
+  logoutBtn: {
+    height: 50,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12
+  },
+  logoutText: { fontSize: 14, fontWeight: '700' },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
