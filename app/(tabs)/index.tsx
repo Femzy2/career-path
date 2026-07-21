@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { auth, db } from '../../lib/firebase';
+import { auth, db, updateAssessmentFeedback } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ export default function ResultsDashboard() {
   const isDark = colorScheme === 'dark';
 
 
-  const [career, setCareer] = useState(RECOMMENDED_CAREER);
+  const [career, setCareer] = useState<any>(RECOMMENDED_CAREER);
   const [courses, setCourses] = useState(RECOMMENDED_COURSES);
   const [userSkills, setUserSkills] = useState<Record<string, string>>({});
   const [completedCourses, setCompletedCourses] = useState<string[]>([]);
@@ -97,7 +97,7 @@ export default function ResultsDashboard() {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed.career && parsed.courses) {
-            setCareer(parsed.career);
+            setCareer(parsed);
             setCourses(parsed.courses);
           }
         }
@@ -177,32 +177,30 @@ export default function ResultsDashboard() {
         rating: feedbackRating,
         comment: feedbackComment.trim(),
         date: new Date().toISOString(),
-        careerTitle: career.title
+        careerTitle: career.career?.title || career.title
       };
       await AsyncStorage.setItem('@recommendation_feedback', JSON.stringify(evaluation));
       
       // Sync feedback to Firebase Firestore (non-blocking)
       const currentUser = auth.currentUser;
-      if (currentUser) {
-        setDoc(doc(db, 'feedback', currentUser.uid), {
-          ...evaluation,
-          userId: currentUser.uid,
-          userEmail: currentUser.email || 'Anonymous',
-          updatedAt: new Date().toISOString()
-        }, { merge: true }).catch(firestoreErr => {
-          console.warn('Failed to sync feedback to Firestore:', firestoreErr);
-        });
+      const activeAssessmentId = career.assessmentId || (await AsyncStorage.getItem('@active_assessment_id'));
+      if (currentUser && activeAssessmentId) {
+        updateAssessmentFeedback(currentUser.uid, activeAssessmentId, feedbackRating, feedbackComment.trim())
+          .catch(firestoreErr => {
+            console.warn('Failed to sync feedback to assessment history in Firestore:', firestoreErr);
+          });
       }
 
       setFeedbackSaved(true);
-      Alert.alert('Evaluation Saved', 'Thank you! Your feedback helps us evaluate and improve the system.');
+      Alert.alert('Evaluation Saved', 'Thank you! Your feedback helps Gemini learn your preferences and improve future recommendations.');
     } catch (err) {
       console.error('Failed to save feedback:', err);
     }
   };
 
-  const required = career.requiredSkills || [];
-  const missingSkills = required.filter(reqSkill => {
+  const currentCareer = career.career || career;
+  const required = currentCareer.requiredSkills || [];
+  const missingSkills = required.filter((reqSkill: any) => {
     const userRating = userSkills[reqSkill.name] || 'Beginner';
     return userRating === 'Beginner';
   });
@@ -217,16 +215,25 @@ export default function ResultsDashboard() {
 
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.greeting, { color: colors.gray }]}>Your Path is Ready</Text>
             <Text style={[styles.title, { color: colors.text }]}>Recommended Career</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => router.replace('/onboarding')}
-            style={[styles.retakeBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
-          >
-            <Text style={[styles.retakeText, { color: colors.primary }]}>Retake ↺</Text>
-          </TouchableOpacity>
+          <View style={styles.headerBtnRow}>
+            <TouchableOpacity
+              onPress={() => router.push('/history' as any)}
+              style={[styles.historyBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+            >
+              <Ionicons name="time-outline" size={15} color={colors.primary} />
+              <Text style={[styles.historyText, { color: colors.primary }]}>History</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.replace('/onboarding')}
+              style={[styles.retakeBtn, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}
+            >
+              <Text style={[styles.retakeText, { color: colors.primary }]}>Retake ↺</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Main Career Card */}
@@ -235,7 +242,7 @@ export default function ResultsDashboard() {
           borderColor: colors.primary
         }]}>
           <View style={styles.matchBadge}>
-            <Text style={styles.matchText}>{career.match}% Fit</Text>
+            <Text style={styles.matchText}>{currentCareer.match}% Fit</Text>
           </View>
 
           <Text 
@@ -244,7 +251,7 @@ export default function ResultsDashboard() {
             adjustsFontSizeToFit
             minimumFontScale={0.65}
           >
-            {career.title}
+            {currentCareer.title}
           </Text>
 
           <View style={styles.salaryRow}>
@@ -255,16 +262,16 @@ export default function ResultsDashboard() {
               adjustsFontSizeToFit
               minimumFontScale={0.75}
             >
-              {career.salary}
+              {currentCareer.salary}
             </Text>
           </View>
 
           <Text style={[styles.careerDesc, { color: colors.text }]}>
-            {career.description}
+            {currentCareer.description}
           </Text>
 
           <View style={styles.tagRow}>
-            {career.tags.map(tag => (
+            {(currentCareer.tags || []).map((tag: string) => (
               <View key={tag} style={[styles.tag, { backgroundColor: colors.cardBackground }]}>
                 <Text style={[styles.tagText, { color: colors.gray }]}>{tag}</Text>
               </View>
@@ -344,7 +351,7 @@ export default function ResultsDashboard() {
           </View>
           <Text style={[styles.skillGapText, { color: 'rgba(255, 255, 255, 0.85)' }]}>
             {missingCount > 0 
-              ? `You are missing or weak in ${missingCount} key skill${missingCount > 1 ? 's' : ''} (${missingSkills.map(s => s.name).join(', ')}) for this path. Let's build your learning roadmap.` 
+              ? `You are missing or weak in ${missingCount} key skill${missingCount > 1 ? 's' : ''} (${missingSkills.map((s: any) => s.name).join(', ')}) for this path. Let's build your learning roadmap.` 
               : 'You have all the fundamental skills required for this career path! View your learning roadmap to begin scaling up.'}
           </Text>
           <View style={styles.skillGapBtn}>
@@ -424,6 +431,21 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
   title: { fontSize: 26, fontWeight: '800' },
+  headerBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  historyText: { fontSize: 12, fontWeight: '700' },
   retakeBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,

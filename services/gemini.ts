@@ -1,9 +1,10 @@
-import { db, auth } from '../lib/firebase';
+import { db, auth, getUserAssessmentHistory, saveAssessmentRecord } from '../lib/firebase';
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
 export interface CareerRecommendation {
+  assessmentId?: string;
   career: {
     title: string;
     salary: string;
@@ -110,6 +111,7 @@ async function fetchYouTubeVideos(query: string, apiKey: string) {
  */
 export async function getCareerRecommendation(state: OnboardingState): Promise<CareerRecommendation> {
   const startTime = Date.now();
+  const currentUser = auth.currentUser;
   
   // Load dynamic API keys from Firestore system config
   let geminiKey = GEMINI_API_KEY;
@@ -127,6 +129,32 @@ export async function getCareerRecommendation(state: OnboardingState): Promise<C
     }
   } catch (keyErr) {
     console.warn('Failed to load dynamic API keys from Firestore, using default fallbacks:', keyErr);
+  }
+
+  // Retrieve previous assessment history context to enable continuous AI learning
+  let historyContext = '';
+  if (currentUser) {
+    try {
+      const pastAssessments = await getUserAssessmentHistory(currentUser.uid);
+      if (pastAssessments.length > 0) {
+        const historySummaries = pastAssessments.slice(0, 3).map((past, idx) => {
+          const title = past.recommendation?.career?.title || 'Unknown Career';
+          const dateStr = past.createdAt ? new Date(past.createdAt).toLocaleDateString() : 'Previous session';
+          const ratingStr = past.feedback?.rating ? `${past.feedback.rating}/5 stars` : 'No rating';
+          const commentStr = past.feedback?.comment ? `"${past.feedback.comment}"` : 'No comment';
+          return `- Assessment #${idx + 1} (${dateStr}): Recommended "${title}" (Match: ${past.recommendation?.career?.match || 'N/A'}%). User Feedback: ${ratingStr}, Comment: ${commentStr}`;
+        }).join('\n');
+
+        historyContext = `
+Previous Career Assessment History & User Feedback:
+${historySummaries}
+
+Note: The user has taken previous career assessments with the feedback listed above. Take their previous recommendations and feedback into account to refine their path, suggest complimentary focus areas, or introduce specialized tracks.
+`;
+      }
+    } catch (histErr) {
+      console.warn('Could not fetch assessment history context for AI prompt:', histErr);
+    }
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
@@ -152,7 +180,7 @@ Personal Context & Open-Ended Insights:
 - Career you have always been interested in: ${state.dreamCareer || 'Not provided'}
 - Free time activities: ${state.freeTimeActivities || 'Not provided'}
 - Additional insights/preferences to know: ${state.additionalInsights || 'Not provided'}
-
+${historyContext}
 Your response MUST follow the strict JSON schema provided. Recommend a career title, estimated salary range in Nigerian Naira (₦) (e.g. '₦6,000,000 - ₦12,000,000 per year' or '₦500k - ₦1.2m per month'), match percentage (an integer between 60 and 100), and a personalized description explaining why it fits.
 
 Also provide:
@@ -408,17 +436,33 @@ Also provide:
     }
 
     const elapsed = Date.now() - startTime;
-    const currentUser = auth.currentUser;
+    let createdAssessmentId: string | undefined = undefined;
+
+    if (currentUser) {
+      try {
+        createdAssessmentId = await saveAssessmentRecord(
+          currentUser.uid,
+          currentUser.email || '',
+          state,
+          { career: parsedResult.career, courses }
+        );
+      } catch (saveErr) {
+        console.warn('Failed to save assessment record to Firestore:', saveErr);
+      }
+    }
+
     addDoc(collection(db, 'api_logs'), {
       userId: currentUser?.uid || 'Anonymous',
       userEmail: currentUser?.email || 'Anonymous',
       timestamp: new Date().toISOString(),
       latency: elapsed,
       success: true,
-      model: 'gemini-2.5-flash'
+      model: 'gemini-2.5-flash',
+      assessmentId: createdAssessmentId || null
     }).catch(logErr => console.warn('Failed to save API performance log:', logErr));
 
     return {
+      assessmentId: createdAssessmentId,
       career: parsedResult.career,
       courses
     };

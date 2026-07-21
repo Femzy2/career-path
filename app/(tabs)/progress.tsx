@@ -232,6 +232,26 @@ export default function ProgressScreen() {
           </View>
         </View>
 
+        {/* Assessment History Quick Card */}
+        <TouchableOpacity
+          onPress={() => router.push('/history' as any)}
+          activeOpacity={0.8}
+          style={[styles.historyBanner, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.08)', borderColor: colors.primary + '60' }]}
+        >
+          <View style={styles.historyBannerLeft}>
+            <View style={[styles.historyIconCircle, { backgroundColor: colors.primary }]}>
+              <Ionicons name="time" size={20} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.historyBannerTitle, { color: colors.text }]}>Assessment History & Logs</Text>
+              <Text style={[styles.historyBannerSub, { color: colors.gray }]}>
+                View past recommendations, input state & feedback
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+        </TouchableOpacity>
+
         {/* Skill Growth Graph Section */}
         <View style={[styles.chartSection, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Skill Growth Graph</Text>
@@ -478,6 +498,36 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 13, fontWeight: '600' },
   summaryValue: { fontSize: 14, fontWeight: '800' },
 
+  historyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    marginBottom: 24,
+  },
+  historyBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  historyIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  historyBannerSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
   retakeBtn: {
     height: 50,
     borderRadius: 14,

@@ -33,6 +33,14 @@
                     <i data-lucide="layout-dashboard"></i>
                     <span>Dashboard</span>
                 </button>
+                <button class="nav-item" data-tab="ratings">
+                    <i data-lucide="star"></i>
+                    <span>User Ratings & Feedback</span>
+                </button>
+                <button class="nav-item" data-tab="assessments">
+                    <i data-lucide="file-text"></i>
+                    <span>Assessments & History</span>
+                </button>
                 <button class="nav-item" data-tab="configs">
                     <i data-lucide="key-round"></i>
                     <span>API Credentials</span>
@@ -40,7 +48,7 @@
             </nav>
 
             <div class="sidebar-footer">
-                <span class="version-tag">Admin Console v1.4.0</span>
+                <span class="version-tag">Admin Console v1.5.0</span>
             </div>
         </aside>
 
@@ -83,6 +91,17 @@
                             <h3>Onboarding Rate</h3>
                             <p class="kpi-value" id="kpi-onboarding">0%</p>
                             <span class="kpi-trend trend-up">Completed profiles</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-icon-wrapper star-kpi-icon">
+                            <i data-lucide="star"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <h3>Avg User Rating</h3>
+                            <p class="kpi-value" id="kpi-avg-rating">0.0 ★</p>
+                            <span class="kpi-trend trend-up" id="kpi-rating-count">0 user evaluations</span>
                         </div>
                     </div>
 
@@ -161,6 +180,173 @@
                             <div class="log-line system-line">[SYSTEM] Starting Admin Control Portal...</div>
                             <div class="log-line system-line">[SYSTEM] Initializing Firebase web SDK client...</div>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- User Ratings & Feedback Tab -->
+            <section class="tab-panel" id="ratings-tab">
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon-wrapper star-kpi-icon">
+                            <i data-lucide="star"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <h3>Overall Satisfaction</h3>
+                            <p class="kpi-value" id="ratings-score-kpi">0.0 / 5.0</p>
+                            <span class="kpi-trend trend-up" id="ratings-total-count">Based on 0 ratings</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-icon-wrapper completion-icon">
+                            <i data-lucide="thumbs-up"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <h3>Satisfaction Rate</h3>
+                            <p class="kpi-value" id="ratings-satisfaction-pct">0%</p>
+                            <span class="kpi-trend trend-up">4+ Star Rating ratio</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-icon-wrapper request-icon">
+                            <i data-lucide="message-square"></i>
+                        </div>
+                        <div class="kpi-info">
+                            <h3>Written Reviews</h3>
+                            <p class="kpi-value" id="ratings-comments-count">0</p>
+                            <span class="kpi-trend trend-neutral">Qualitative user comments</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rating Distribution & Filters -->
+                <div class="dashboard-grid" style="margin-top: 20px;">
+                    <div class="card" style="padding: 20px;">
+                        <div class="card-header border-bottom" style="margin-bottom: 16px;">
+                            <h2>Rating Distribution Breakdown</h2>
+                            <p>Visual star score distribution submitted by users.</p>
+                        </div>
+                        <div class="rating-distribution-container" id="rating-distribution-bars">
+                            <!-- Populated dynamically via JavaScript -->
+                        </div>
+                    </div>
+
+                    <div class="card" style="padding: 20px;">
+                        <div class="card-header border-bottom" style="margin-bottom: 16px;">
+                            <h2>Filter & Search Reviews</h2>
+                            <p>Refine user evaluation comments and ratings.</p>
+                        </div>
+                        <div class="config-form">
+                            <div class="form-group">
+                                <label>Search User / Career</label>
+                                <input type="text" id="ratings-search-input" placeholder="Search by email or career title...">
+                            </div>
+                            <div class="form-group">
+                                <label>Filter by Star Score</label>
+                                <select id="ratings-star-filter" class="select-input">
+                                    <option value="all">All Stars (1 - 5 Stars)</option>
+                                    <option value="5">5 Stars Only ★★★★★</option>
+                                    <option value="4">4 Stars Only ★★★★☆</option>
+                                    <option value="3">3 Stars Only ★★★☆☆</option>
+                                    <option value="2">2 Stars Only ★★☆☆☆</option>
+                                    <option value="1">1 Star Only ★☆☆☆☆</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ratings Table -->
+                <div class="card" style="margin-top: 24px; padding: 20px;">
+                    <div class="card-header border-bottom">
+                        <h2>User Evaluation & Feedback Logs</h2>
+                        <p>Complete record of recommendation ratings and user comments stored in Firestore.</p>
+                    </div>
+                    <div class="status-table-wrapper" style="margin-top: 16px;">
+                        <table class="status-table">
+                            <thead>
+                                <tr>
+                                    <th>User Email</th>
+                                    <th>Recommended Career</th>
+                                    <th>Rating</th>
+                                    <th>User Comment & Feedback</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ratings-table-body">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                                        Loading user evaluations...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Assessments & History Tab -->
+            <section class="tab-panel" id="assessments-tab">
+                <!-- KPI & Export Row -->
+                <div class="card-header" style="flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h2>User Assessment & AI Recommendation Database</h2>
+                        <p>Explore complete questionnaire inputs, RIASEC traits, and AI career outputs.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary-accent" id="export-json-btn">
+                            <i data-lucide="download"></i>
+                            <span>Export AI Training Data (JSON)</span>
+                        </button>
+                        <button class="btn btn-primary" id="export-csv-btn">
+                            <i data-lucide="file-spreadsheet"></i>
+                            <span>Export CSV</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="card" style="padding: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 16px; align-items: center;">
+                        <div style="flex: 1;">
+                            <input type="text" id="assessments-search-input" placeholder="Search by email, career title, or education level...">
+                        </div>
+                        <div>
+                            <select id="assessments-goal-filter" class="select-input">
+                                <option value="all">All Goals / Priorities</option>
+                                <option value="High Salary">High Salary</option>
+                                <option value="Job Security">Job Security</option>
+                                <option value="Work-Life Balance">Work-Life Balance</option>
+                                <option value="Entrepreneurship">Entrepreneurship</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Assessments Table -->
+                <div class="card" style="padding: 20px;">
+                    <div class="status-table-wrapper">
+                        <table class="status-table">
+                            <thead>
+                                <tr>
+                                    <th>User Email</th>
+                                    <th>Recommended Career</th>
+                                    <th>Match %</th>
+                                    <th>Education / Field</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assessments-table-body">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                                        Loading assessment history documents...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </section>
@@ -260,7 +446,23 @@
         </main>
     </div>
 
+    <!-- Assessment Detail Inspection Modal -->
+    <div class="modal-overlay" id="assessment-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modal-title">Assessment Session Details</h2>
+                    <p id="modal-subtitle">Full onboarding state inputs & AI recommendation schema</p>
+                </div>
+                <button class="close-modal-btn" id="close-modal-btn">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Dynamically populated via JavaScript -->
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK Modules Script -->
-    <script type="module" src="admin-app.js?v=1.4.4"></script>
+    <script type="module" src="admin-app.js?v=1.5.0"></script>
 </body>
 </html>

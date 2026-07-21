@@ -285,6 +285,9 @@ export default function OnboardingScreen() {
             await AsyncStorage.setItem('@user_skills', JSON.stringify(state.skills));
             await AsyncStorage.setItem('@user_personality', JSON.stringify(finalPersonality));
             await AsyncStorage.setItem('@onboarding_state', JSON.stringify(state));
+            if (recommendation.assessmentId) {
+                await AsyncStorage.setItem('@active_assessment_id', recommendation.assessmentId);
+            }
 
             // Sync career recommendation to Firebase Firestore (non-blocking)
             const currentUser = auth.currentUser;
@@ -294,6 +297,7 @@ export default function OnboardingScreen() {
                     skills: state.skills,
                     personality: finalPersonality,
                     onboardingState: state,
+                    activeAssessmentId: recommendation.assessmentId || null,
                     updatedAt: new Date().toISOString()
                 }, { merge: true }).catch(firestoreErr => {
                     console.warn('Failed to sync career recommendation to Firestore:', firestoreErr);

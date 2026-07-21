@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db } from '../lib/firebase';
+import { auth, db, migrateLegacyUserIfNeeded } from '../lib/firebase';
 
 interface AuthContextType {
     user: User | null;
@@ -31,6 +31,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(firebaseUser);
             if (firebaseUser) {
                 try {
+                    // Check & migrate legacy user recommendation data to subcollection history
+                    migrateLegacyUserIfNeeded(firebaseUser.uid, firebaseUser.email || '').catch(err =>
+                        console.warn('Non-blocking legacy migration warning:', err)
+                    );
+
                     // Sync user data from Firestore to local AsyncStorage
                     const docRef = doc(db, 'users', firebaseUser.uid);
                     const docSnap = await getDoc(docRef);
