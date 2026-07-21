@@ -1,10 +1,10 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, TextInput } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { auth, db, updateAssessmentFeedback } from '../../lib/firebase';
@@ -68,7 +68,7 @@ export default function ResultsDashboard() {
   const colors = Colors[colorScheme];
   const router = useRouter();
   const isDark = colorScheme === 'dark';
-
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [career, setCareer] = useState<any>(RECOMMENDED_CAREER);
   const [courses, setCourses] = useState(RECOMMENDED_COURSES);
@@ -93,14 +93,20 @@ export default function ResultsDashboard() {
   useEffect(() => {
     const loadRecommendation = async () => {
       try {
+        let currentAssessmentId = '';
         const stored = await AsyncStorage.getItem('@career_recommendation');
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed.career && parsed.courses) {
             setCareer(parsed);
             setCourses(parsed.courses);
+            currentAssessmentId = parsed.assessmentId || '';
           }
         }
+        if (!currentAssessmentId) {
+          currentAssessmentId = (await AsyncStorage.getItem('@active_assessment_id')) || '';
+        }
+
         const storedSkills = await AsyncStorage.getItem('@user_skills');
         if (storedSkills) {
           setUserSkills(JSON.parse(storedSkills));
@@ -116,6 +122,7 @@ export default function ResultsDashboard() {
             'Problem Solving': 'Intermediate'
           });
         }
+
         const storedProgress = await AsyncStorage.getItem('@user_progress');
         if (storedProgress) {
           const parsed = JSON.parse(storedProgress);
@@ -123,9 +130,28 @@ export default function ResultsDashboard() {
             setCompletedCourses(parsed.completedCourses);
           }
         }
-        const storedFeedback = await AsyncStorage.getItem('@recommendation_feedback');
-        if (storedFeedback) {
-          setFeedbackSaved(true);
+
+        // Check if evaluation feedback was saved for THIS SPECIFIC assessment run
+        if (currentAssessmentId) {
+          const storedFeedbackForId = await AsyncStorage.getItem(`@recommendation_feedback_${currentAssessmentId}`);
+          if (storedFeedbackForId) {
+            const parsedFb = JSON.parse(storedFeedbackForId);
+            setFeedbackRating(parsedFb.rating || 0);
+            setFeedbackComment(parsedFb.comment || '');
+            setFeedbackSaved(true);
+          } else {
+            // Fresh rating card for new assessment session
+            setFeedbackRating(0);
+            setFeedbackComment('');
+            setFeedbackSaved(false);
+          }
+        } else {
+          const storedFeedback = await AsyncStorage.getItem('@recommendation_feedback');
+          if (storedFeedback) {
+            setFeedbackSaved(true);
+          } else {
+            setFeedbackSaved(false);
+          }
         }
       } catch (error) {
         console.error('Failed to load career recommendation:', error);
@@ -179,11 +205,15 @@ export default function ResultsDashboard() {
         date: new Date().toISOString(),
         careerTitle: career.career?.title || career.title
       };
+
+      const activeAssessmentId = career.assessmentId || (await AsyncStorage.getItem('@active_assessment_id'));
       await AsyncStorage.setItem('@recommendation_feedback', JSON.stringify(evaluation));
+      if (activeAssessmentId) {
+        await AsyncStorage.setItem(`@recommendation_feedback_${activeAssessmentId}`, JSON.stringify(evaluation));
+      }
       
       // Sync feedback to Firebase Firestore (non-blocking)
       const currentUser = auth.currentUser;
-      const activeAssessmentId = career.assessmentId || (await AsyncStorage.getItem('@active_assessment_id'));
       if (currentUser && activeAssessmentId) {
         updateAssessmentFeedback(currentUser.uid, activeAssessmentId, feedbackRating, feedbackComment.trim())
           .catch(firestoreErr => {
@@ -211,7 +241,18 @@ export default function ResultsDashboard() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={styles.scrollContent}
+        >
 
         {/* Header */}
         <View style={styles.header}>
@@ -400,6 +441,11 @@ export default function ResultsDashboard() {
                 placeholderTextColor={colors.grayLight}
                 value={feedbackComment}
                 onChangeText={setFeedbackComment}
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 150);
+                }}
                 multiline
                 numberOfLines={3}
               />
@@ -414,7 +460,8 @@ export default function ResultsDashboard() {
           )}
         </View>
 
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
